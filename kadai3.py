@@ -3,61 +3,69 @@ import random
 import math
 import matplotlib.pyplot as plt
 
-def weight(w, i, x_mem, memsize, k):
-	for j in range(k):
-		if i == j:
-			w[i][j] = 0
-		else:
-			x_mem_T = x_mem[:,j:j+1].reshape(1, memsize)
-			w[i][j] = np.dot(x_mem_T,x_mem[:,i:i+1])
+def generate_memories(m, n):
+	x_mem = np.zeros((m, n))
+	for alpha in range(m):
+		x_mem[alpha] = random.choices([-1, 1], k=n, weights=[1, 1])
+	return x_mem
+	
+def generate_weight(x_mem, m, n):
+	w = np.zeros((n, n)) #重み付け
+	for i in range(n):
+		for j in range(n):
+			if i == j:
+				w[i][j] = 0
+			else:
+				x_mem_T = x_mem[:,j:j+1].reshape(1, m)
+				w[i][j] = np.dot(x_mem_T,x_mem[:,i:i+1])
+	w /= n
 	return w
 	
-def dynamics(x, k):
-	u = 0
-	for i in range(k):
-		for t in range(19):
-			u = np.dot(x[t:t+1,:],w[i:i+1,:].reshape(k,1))
-			if u > 0:
-				x[t+1][i] = 1
-			else:
-				x[t+1][i] = -1
+def memories_fipped(n, a, x, x_mem):
+	for i in range(n):
+		if i < a:
+			x[0][i] = -x_mem[0][i]
+		else:
+			x[0][i] = x_mem[0][i]
 	return x
-
-#Associative memory
-NEURONS = 1000
-MEMORIESITEM = 80
-T = 20
-FIPPED = [i for i in range(451) if i % 25 == 0]
-for a in FIPPED:
-	x_memory = np.zeros((MEMORIESITEM, NEURONS)) #np.zeros((列, 行))
-	x = np.zeros((T, NEURONS))
-	w = np.zeros((NEURONS, NEURONS))
-	s = np.zeros(T)
 	
-	#ステップ1
-	for alpha in range(MEMORIESITEM):
-		x_memory[alpha] = random.choices([-1, 1], k=NEURONS, weights=[1, 1])
+def update_status(t, x, w, n):
+	for i in range(n):
+		u = 0
+		u = np.dot(x[t:t+1,:],w[i:i+1,:].reshape(n,1))
+		if u > 0:
+			x[t+1][i] = 1
+		else:
+			x[t+1][i] = -1
+	return x
 	
-	for i in range(NEURONS):
-		weight(w, i, x_memory, MEMORIESITEM, NEURONS) #ステップ2
+def compute_s(n, xt, x_mem):
+	u = np.dot(xt, x_mem[0].reshape(n, 1))
+	u /= n
+	return u
 	
-	#ステップ3
-	x[0] = x_memory[0]
-	if a != 0:
-		for i in range(a):
-			if x[0][i] == 1:
-				x[0][i] = -1
+def main():
+	NEURONS = 1000
+	MEMORIESITEM = 80
+	T = 20
+	FIPPED = [i for i in range(451) if i % 50 == 0]
+	x_memory = generate_memories(MEMORIESITEM, NEURONS)
+	w = generate_weight(x_memory, MEMORIESITEM, NEURONS)
+	for A in FIPPED:
+		x = np.zeros((T, NEURONS))
+		s = np.zeros(T)
+		x = memories_fipped(NEURONS, A, x, x_memory)
+		#print("FIPPED:",A)
+		for t in range(T):
+			s[t] = compute_s(NEURONS, x[t], x_memory)
+			print(t,"/",s[t])
+			if t == 19:
+				pass
 			else:
-				x[0][i] = 1
-	else:
-		pass
+				update_status(t, x, w, NEURONS)
+		plt.plot([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20], s)
+	plt.show()
 	
-	dynamics(x, NEURONS) #ステップ4
-	
-	#ステップ5
-	x_memory_0T = x_memory[0].reshape(NEURONS, 1)
-	for t in range(T):
-		s[t] = np.dot(x[t], x_memory_0T)
-	s /= NEURONS
-	plt.plot([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20], s)
-plt.show()
+if __name__ == "__main__":
+	main()
+
